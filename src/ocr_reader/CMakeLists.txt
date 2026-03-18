@@ -17,4 +17,10 @@ ament_target_dependencies(ocr_reader_node rclcpp std_msgs)
 install(TARGETS ocr_reader_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
+install(
+  PROGRAMS src/texify_reader_node.py
+  RENAME texify_reader_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()
