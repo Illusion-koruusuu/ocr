@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
@@ -17,21 +18,28 @@ class OcrReaderCppNode final : public rclcpp::Node
 public:
   OcrReaderCppNode() : Node("ocr_reader")
   {
-    image_path_ = this->declare_parameter<std::string>("image_path", "/home/lu/code/ocr/input.png");
-    lang_ = this->declare_parameter<std::string>("lang", "eng");
+    image_path_ = this->declare_parameter<std::string>("image_path", "png/111.png");
+    lang_ = this->declare_parameter<std::string>("lang", "equ+eng");
     psm_ = this->declare_parameter<int>("psm", 6);  // 6=single uniform block
-    invert_ = this->declare_parameter<bool>("invert", false);
+    invert_ = this->declare_parameter<bool>("invert", true);
     scale_ = this->declare_parameter<double>("scale", 2.0);
     whitelist_ = this->declare_parameter<std::string>(
       "whitelist",
-      "0123456789+-*/().=xX\xC3\x97\xC3\xB7");  // includes × and ÷ (UTF-8)
+      " ∻ ÷ 0123456789+-=*/().xX \xC3\x97");  // includes × and ÷ (UTF-8)
     blacklist_ = this->declare_parameter<std::string>("blacklist", "");
     period_ms_ = this->declare_parameter<int>("period_ms", 500);
     topic_ = this->declare_parameter<std::string>("topic", "ocr_text");
 
     pub_ = this->create_publisher<std_msgs::msg::String>(topic_, 10);
 
-    if (tess_.Init(nullptr, lang_.c_str()) != 0) {
+    //TODO：配置文件
+    // char * configs[] = {"/home/lu/code/ocr/unicharambigs"};
+    // int configs_size = 1;
+    // if (tess_.Init(
+    //       nullptr, lang_.c_str(), tesseract::OEM_DEFAULT, configs, configs_size, nullptr, nullptr,
+    //       false))
+    if (tess_.Init(nullptr, lang_.c_str()) != 0)
+    {
       throw std::runtime_error("tesseract Init failed (lang=" + lang_ + ")");
     }
 
@@ -39,7 +47,7 @@ public:
     if (!blacklist_.empty()) {
       (void)tess_.SetVariable("tessedit_char_blacklist", blacklist_.c_str());
     }
-    tess_.SetPageSegMode(static_cast<tesseract::PageSegMode>(psm_));
+    // tess_.SetPageSegMode(static_cast<tesseract::PageSegMode>(psm_));
 
     timer_ = this->create_wall_timer(
       std::chrono::milliseconds(period_ms_),
@@ -60,32 +68,35 @@ private:
       return;
     }
 
-    // Pix * img8 = pixConvertTo8(raw, 0);
-    // pixDestroy(&raw);
-    // if (img8 == nullptr) {
-    //   RCLCPP_WARN(get_logger(), "Failed to convert image to 8bpp: %s", image_path_.c_str());
-    //   return;
-    // }
+    Pix * img8 = pixConvertTo8(raw, 0);
+    pixDestroy(&raw);
+    if (img8 == nullptr) {
+      RCLCPP_WARN(get_logger(), "Failed to convert image to 8bpp: %s", image_path_.c_str());
+      return;
+    }
 
-    // Pix * proc = img8;
-    // if (invert_) {
-    //   Pix * inv = pixInvert(nullptr, proc);
-    //   pixDestroy(&proc);
-    //   proc = inv;
-    // }
+    Pix * proc = img8;
+    if (invert_) {
+      Pix * inv = pixInvert(nullptr, proc);
+      pixDestroy(&proc);
+      proc = inv;
+    }
 
-    // if (scale_ > 1.01) {
-    //   Pix * scaled = pixScale(proc, scale_, scale_);
-    //   pixDestroy(&proc);
-    //   proc = scaled;
-    // }
+    if (scale_ > 1.01) {
+      Pix * scaled = pixScale(proc, scale_, scale_);
+      pixDestroy(&proc);
+      proc = scaled;
+    }
 
-    // if (proc == nullptr) {
-    //   RCLCPP_WARN(get_logger(), "Preprocess failed for image: %s", image_path_.c_str());
-    //   return;
-    // }
+    if (proc == nullptr) {
+      RCLCPP_WARN(get_logger(), "Preprocess failed for image: %s", image_path_.c_str());
+      return;
+    }
 
-    tess_.SetImage(raw);
+    // 将预处理后的图像保存到文件以供调试
+    pixWrite("./png/processed_image.png", proc, IFF_PNG);
+
+    tess_.SetImage(proc);
 
     char * out = tess_.GetUTF8Text();
     std::string text = (out != nullptr) ? std::string(out) : std::string();
@@ -109,7 +120,7 @@ private:
     RCLCPP_INFO(get_logger(), "OCR published (%zu chars): %s", text.size(), preview.c_str());
 
     tess_.Clear();
-    // pixDestroy(&proc);
+    pixDestroy(&proc);
   }
 
   std::string image_path_;

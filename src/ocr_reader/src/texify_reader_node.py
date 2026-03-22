@@ -4,6 +4,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from PIL import Image
 import os
+import time
 import torch
 from texify.inference import batch_inference
 from texify.model.model import load_model
@@ -45,7 +46,12 @@ class TexifyReaderNode(Node):
 
         try:
             img = Image.open(self.image_path)
+
+            start_time = time.perf_counter()
             latex_result = batch_inference([img], self.model, self.processor)
+            if self.device == 'cuda':
+                torch.cuda.synchronize()
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
             # The result is a list, get the first element
             text = latex_result[0] if latex_result else ""
@@ -54,6 +60,7 @@ class TexifyReaderNode(Node):
             msg.data = text
             self.publisher_.publish(msg)
             self.get_logger().info(f'Published LaTeX: {text}')
+            self.get_logger().info(f'Recognition time: {elapsed_ms:.2f} ms')
 
         except Exception as e:
             self.get_logger().error(f'Failed to process image: {e}')
