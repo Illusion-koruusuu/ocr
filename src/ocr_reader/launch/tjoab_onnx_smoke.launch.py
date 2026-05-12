@@ -2,6 +2,8 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch.actions import SetEnvironmentVariable
+import os
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -63,6 +65,7 @@ def generate_launch_description() -> LaunchDescription:
             text_topic_arg,
             id2token_path_arg,
             period_ms_arg,
+            SetEnvironmentVariable("LD_LIBRARY_PATH", "/home/lu/onnxruntime-linux-x64-1.24.4/lib:" + os.environ.get("LD_LIBRARY_PATH","")),
             Node(
                 package="ocr_reader",
                 executable="tjoab_onnx_smoke_node",

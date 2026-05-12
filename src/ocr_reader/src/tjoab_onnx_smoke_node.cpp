@@ -522,11 +522,12 @@ private:
 
       RCLCPP_INFO(
         this->get_logger(),
-        "ONNX decode ok: image=%s, tokens=%zu, text_len=%zu, elapsed=%ld ms",
+        "ONNX decode ok: image=%s, tokens=%zu, text_len=%zu, elapsed=%ld ms, decoded_text=%s",
         image_path_.c_str(),
         token_ids.size(),
         decoded_text.size(),
-        elapsed_ms);
+        elapsed_ms,
+        decoded_text.c_str());
     } catch (const std::exception & e) {
       RCLCPP_ERROR(this->get_logger(), "ONNX smoke run failed: %s", e.what());
     }
